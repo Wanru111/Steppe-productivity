@@ -1,0 +1,76 @@
+clear
+close all
+
+readFile = 'all.xlsx';
+saveFile = 'output_all.xlsx';
+
+data = xlsread(readFile);
+if size(data,2) == 11
+	data = [ones(size(data,1),1) data];
+end
+id = importId(readFile,[],[1,size(data,1)]);
+id = id.VarName1;
+
+
+minYear = min(data(:,2));
+maxYear = max(data(:,2))+10;
+
+coundError = zeros(maxYear-minYear+1,5);
+coundError(:,1) = minYear:maxYear;
+
+n = size(data,1);
+for i = 1 : n
+    if i == 1 
+        treeIndex = id(i,1);
+        startYear = data(i,2);
+        treeData = [];
+    end
+    
+    tmpData = data(i,3:end);
+    treeData = [treeData tmpData(~isnan(tmpData))];
+    
+    if i+1 == n
+        break
+    end
+        
+    if id(i+1,1) ~= treeIndex
+        treeData(end) = [];
+        meanTreeData = mean(treeData);
+        stdTreeData = std(treeData);
+        index1 = find(treeData < meanTreeData-stdTreeData);
+        index2 = find(treeData > meanTreeData+stdTreeData);
+        index3 = union(index1, index2) ; 
+        
+        coundError(startYear-minYear+(1:length(treeData)),2) = coundError(startYear-minYear+(1:length(treeData)),2) + 1;
+        coundError(startYear-minYear+index1,3) = coundError(startYear-minYear+index1,3) + 1;
+        coundError(startYear-minYear+index2,4) = coundError(startYear-minYear+index2,4) + 1;
+        coundError(startYear-minYear+index3,5) = coundError(startYear-minYear+index3,5) + 1;
+        
+        treeIndex = id(i+1,1);
+        startYear = data(i+1,2);
+        treeData = [];
+    end
+end
+
+
+res = coundError(:,3:5);
+tmp = coundError(:,2)~=0;
+res(tmp,:) = res(tmp,:)./coundError(tmp,2);
+coundError = [coundError res];
+
+result = cell( size(coundError,1)+1, size(coundError,2));
+result{1,1} = '年份';
+result{1,2} = '树木总数';
+result{1,3} = '数目：x<mean-std ';
+result{1,4} = '数目：x>mean+std';
+result{1,5} = '数目：mean-std<x<mean+std';
+result{1,6} = '比率：x<mean-std ';
+result{1,7} = '比率：x>mean+std';
+result{1,8} = '比率：mean-std<x<mean+std';
+for i = 1 : size(coundError,1)
+    for j = 1 : size(coundError,2)
+        result{i+1,j} = coundError(i,j);
+    end
+end
+xlswrite(saveFile,result)
+
